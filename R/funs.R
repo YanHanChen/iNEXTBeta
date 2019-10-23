@@ -23,29 +23,107 @@
 #' @import dplyr
 #' @importFrom iNEXT iNEXT
 #' @export
-iNEXT_beta <- function(x, q = 0, datatype = "abundance", size = NULL, endpoint = NULL, knots = 40, se = TRUE, conf = 0.95,
+iNEXT_beta <- function(x, q = c(0,1,2), datatype = "abundance", size = NULL, endpoint = NULL, knots = 40, se = FALSE, conf = 0.95,
                        nboot = 30){
+  if(class(x)=="data.frame" & datatype =="abundance"){
+    x <- list(region1 = x)
+  }
+  # if some community contains zero species?
   if(class(x)== "list"){
-    if(is.null(x)) nms <- paste0(region,1:length(x))else nms <- names(x)
+    if(is.null(names(x))) nms <- paste0("region",1:length(x))else nms <- names(x)
     n_sp <- sapply(x,ncol)
-    gamma_data <- lapply(x, rowSums) %>% do.call(cbind,.)
-    gamma_data <- gamma_data[rowSums(gamma_data)>0,]
-    colnames(gamma_data) <- nms
-    alpha_data <- lapply(x, as.numeric) %>% do.call(cbind,.)
-    alpha_data <- alpha_data[rowSums(alpha_data)>0,]
-    colnames(alpha_data) <- nms
+    mydata <- lapply(x, function(y) y[rowSums(y)>0,])
   }
-  gamma <- iNEXT(x = gamma_data,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = 80,
-                 se = se,conf = conf,nboot=nboot)
-  alpha <- iNEXT(x = alpha_data,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = 80,
-                 se = se,conf = conf,nboot=nboot)
-  beta <- gamma
-  for(i in 1:length(nms)){
-    alpha$iNextEst[[i]]$qD <- alpha$iNextEst[[i]]$qD/n_sp[i]
-    beta$iNextEst[[i]]$qD <- gamma$iNextEst[[i]]$qD/alpha$iNextEst[[i]]$qD
+  if(is.null(conf)) conf <- 0.95
+  tmp <- qnorm(1 - (1 - conf)/2)
+  eachR <- function(data,nm,N_site){
+    gdata <- rowSums(data)
+    adata <- as.matrix(data) %>% as.numeric
+    adata <- adata[adata>0]
+    gamma <- iNEXT(x = gdata,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+                   se = FALSE,conf = conf,nboot=nboot)$iNextEst
+    alpha <- iNEXT(x = adata,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+                   se = FALSE,conf = conf,nboot=nboot)$iNextEst
+    alpha$qD <- alpha$qD/N_site
+    beta <- gamma
+    beta$qD <- gamma$qD/alpha$qD
+
+    if(se==TRUE & nboot>1){
+      boot_pop <- boot_beta_one(data)
+      ses <- sapply(1:nboot, function(i){
+        x_bt <- sapply(1:ncol(data),function(k) rmultinom(n = 1,size = sum(data[,k]),prob = boot_pop[,k]))
+        x_bt <- x_bt[rowSums(x_bt)>0,]
+        ga_da_bt <- rowSums(x_bt)
+        al_da_bt <- as.numeric(x_bt)
+        al_da_bt <- x_bt[x_bt>0]
+        gamma_bt <- iNEXT(x = ga_da_bt,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+                          se = FALSE,conf = conf,nboot=nboot)$iNextEst %>% select(qD,SC)
+        alpha_bt <- iNEXT(x = al_da_bt,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+                          se = FALSE,conf = conf,nboot=nboot)$iNextEst %>% select(qD,SC)
+        alpha_bt$qD <- alpha_bt$qD/N_site
+        beta_bt <- gamma_bt$qD/alpha_bt$qD
+        out_bt <- cbind(gamma = gamma_bt,alpha = alpha_bt, beta.qD = beta_bt) %>% as.matrix()
+        out_bt
+      },simplify = "array") %>% apply(., 1:2, sd) %>% data.frame()
+    }else { ses <- data.frame(gamma.qD=rep(0,nrow(gamma)),gamma.SC=rep(0,nrow(gamma)),alpha.qD=rep(0,nrow(gamma)),
+                              alpha.SC=rep(0,nrow(gamma)),beta.qD=rep(0,nrow(gamma)))}
+    gamma <- gamma %>% mutate(qD.LCL = qD - tmp * ses$gamma.qD, qD.UCL = qD + tmp * ses$gamma.qD,
+                     SC.LCL = SC - tmp * ses$gamma.SC, SC.UCL = SC + tmp * ses$gamma.SC, Region = nm)
+    alpha <- alpha %>% mutate(qD.LCL = qD - tmp * ses$alpha.qD, qD.UCL = qD + tmp * ses$alpha.qD,
+                     SC.LCL = SC - tmp * ses$alpha.SC, SC.UCL = SC + tmp * ses$alpha.SC, Region = nm)
+    beta <- beta %>% mutate(qD.LCL = qD - tmp * ses$beta.qD, qD.UCL = qD + tmp * ses$beta.qD,
+                     SC.LCL = SC - tmp * ses$gamma.SC, SC.UCL = SC + tmp * ses$gamma.SC, Region = nm)
+    list(gamma = gamma, alpha = alpha, beta = beta)
   }
-  return(list(gamma = gamma, alpha = alpha, beta = beta))
+  test <- lapply(1:length(x), function(i) eachR(data = mydata[[i]],nm = nms[i],N_site = n_sp[i]))
 }
+
+
+gamma <- iNEXT(x = gamma_data,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+               se = FALSE,conf = conf,nboot=nboot)
+alpha <- iNEXT(x = alpha_data,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+               se = FALSE,conf = conf,nboot=nboot)
+beta <- gamma
+if(se==TRUE & nboot>1){
+  boot_pop <- lapply(1:length(x),function(i) boot_beta_one(data = x[[i]]))
+  bt <- lapply(1:nboot, function(i){
+    x_bt <- sapply(1:length(x), function(j){
+      sapply(1:ncol(x[[j]]),function(k) rmultinom(n = 1,size = sum(x[[j]][,k]),prob = boot_pop[[j]][,k]))
+    })
+    ga_da_bt <- lapply(x_bt, rowSums)
+    ga_da_bt <- lapply(ga_da_bt, function(i) i[i>0])
+    names(ga_da_bt) <- nms
+    al_da_bt <- lapply(x_bt, function(i) as.matrix(i) %>% as.numeric)
+    al_da_bt <- lapply(al_da_bt, function(i) i[i>0])
+    names(al_da_bt) <- nms
+    gamma_bt <- iNEXT(x = ga_da_bt,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+                      se = FALSE,conf = conf,nboot=nboot)$iNextEst %>% lapply(.,function(y) y$qD)
+    alpha_bt <- iNEXT(x = al_da_bt,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+                      se = FALSE,conf = conf,nboot=nboot)$iNextEst %>% lapply(.,function(y) y$qD)
+    out_bt <- lapply(1:length(x),function(j){
+      beta_bt <- n_sp[j]*gamma_bt[[j]]/alpha_bt[[j]]
+      cbind(gamma = gamma_bt[[j]],alpha = alpha_bt[[j]]/n_sp[j], beta = beta_bt)
+    })
+    out_bt
+  })
+  se <- lapply(1:length(x), function(i) {
+    sapply(bt, function(y) y[[i]] ,simplify = "array") %>% apply(., 1:2, sd)
+  })
+}else { se <- 0}
+for(i in 1:length(nms)){
+  tmp <- qnorm(1 - (1 - conf)/2)
+  alpha$iNextEst[[i]]$qD <- alpha$iNextEst[[i]]$qD/n_sp[i]
+  beta$iNextEst[[i]]$qD <- gamma$iNextEst[[i]]$qD/alpha$iNextEst[[i]]$qD
+
+  gamma$iNextEst[[i]]$qD.LCL <- gamma$iNextEst[[i]]$qD - tmp * se[[i]]$gamma
+  gamma$iNextEst[[i]]$qD.UCL <- gamma$iNextEst[[i]]$qD + tmp * se[[i]]$gamma
+  alpha$iNextEst[[i]]$qD.LCL <- alpha$iNextEst[[i]]$qD - tmp * se[[i]]$alpha
+  alpha$iNextEst[[i]]$qD.UCL <- alpha$iNextEst[[i]]$qD + tmp * se[[i]]$alpha
+  beta$iNextEst[[i]]$qD.LCL <- beta$iNextEst[[i]]$qD - tmp * se[[i]]$beta
+  beta$iNextEst[[i]]$qD.UCL <- beta$iNextEst[[i]]$qD + tmp * se[[i]]$beta
+
+}
+return(list(gamma = gamma, alpha = alpha, beta = beta))
 
 #' \code{ggiNEXT_beta}: plot the outcome of \code{iNEXT_beta} based on the \code{ggiNEXT} function.
 #' @param x the outcome of \code{iNEXT_beta}
