@@ -4,15 +4,13 @@
 \alias{ggiNEXT_beta}
 \title{\code{ggiNEXT_beta}: plot the outcome of \code{iNEXT_beta} based on the \code{ggiNEXT} function.}
 \usage{
-ggiNEXT_beta(x, type = 1, se = FALSE)
+ggiNEXT_beta(output, type = 1)
 }
 \arguments{
-\item{x}{the outcome of \code{iNEXT_beta}}
-
 \item{type}{three types of plots: sample-size-based rarefaction/extrapolation curve (type = 1); sample completeness curve (type = 2);
 coverage-based rarefaction/extrapolation curve (type = 3).}
 
-\item{se}{a logical variable to calculate the bootstrap standard error and conf confidence interval.}
+\item{x}{the outcome of \code{iNEXT_beta}}
 }
 \value{
 a list containing 3 ggplot2 object
@@ -22,8 +20,8 @@ a list containing 3 ggplot2 object
 }
 \examples{
 data(abundata)
-out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance")
-ggout1 <- ggiNEXT_beta(x = out, type = 1)
-ggout2 <- ggiNEXT_beta(x = out, type = 2)
-ggout3 <- ggiNEXT_beta(x = out, type = 3)
+out <- iNEXT_beta(x = abundata$region1, q = c(0,1,2), datatype = "abundance")
+ggout1 <- ggiNEXT_beta(output = out, type = 1)
+ggout2 <- ggiNEXT_beta(output = out, type = 2)
+ggout3 <- ggiNEXT_beta(output = out, type = 3)
 }

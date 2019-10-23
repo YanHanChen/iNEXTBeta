@@ -15,17 +15,17 @@
 #' @param se a logical variable to calculate the bootstrap standard error and conf confidence interval.
 #' @param conf a positive number < 1 specifying the level of confidence interval, default is 0.95.
 #' @param nboot an integer specifying the number of replications.
-#' @return a list of 3 iNEXT objects, representing gamma, alpha and beta diversity respectively.
-#' the profiles of all six classes of evenness indices listed in Chao and Ricotta (2019) Ecology paper.
+#' @return a list consists of N elements, where N is the number of region. Each element is a list containing 3 tables of gamma. alpha and beta diversities,
+#' respectibely.
 #' @examples
 #' data(abundata)
-#' out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance")
+#' out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance",se = TRUE)
 #' @import dplyr
 #' @importFrom iNEXT iNEXT
 #' @export
-iNEXT_beta <- function(x, q = c(0,1,2), datatype = "abundance", size = NULL, endpoint = NULL, knots = 40, se = FALSE, conf = 0.95,
+iNEXT_beta <- function(x, q = c(0,1,2), datatype = "abundance", size = NULL, endpoint = NULL, knots = 40, se = TRUE, conf = 0.95,
                        nboot = 30){
-  if(class(x)=="data.frame" & datatype =="abundance"){
+  if(class(x)=="data.frame" | class(x)=="matrix" ){
     x <- list(region1 = x)
   }
   # if some community contains zero species?
@@ -75,75 +75,53 @@ iNEXT_beta <- function(x, q = c(0,1,2), datatype = "abundance", size = NULL, end
                      SC.LCL = SC - tmp * ses$gamma.SC, SC.UCL = SC + tmp * ses$gamma.SC, Region = nm)
     list(gamma = gamma, alpha = alpha, beta = beta)
   }
-  test <- lapply(1:length(x), function(i) eachR(data = mydata[[i]],nm = nms[i],N_site = n_sp[i]))
+  out <- lapply(1:length(x), function(i) eachR(data = mydata[[i]],nm = nms[i],N_site = n_sp[i]))
+  names(out) <- nms
+  out
 }
 
-
-gamma <- iNEXT(x = gamma_data,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
-               se = FALSE,conf = conf,nboot=nboot)
-alpha <- iNEXT(x = alpha_data,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
-               se = FALSE,conf = conf,nboot=nboot)
-beta <- gamma
-if(se==TRUE & nboot>1){
-  boot_pop <- lapply(1:length(x),function(i) boot_beta_one(data = x[[i]]))
-  bt <- lapply(1:nboot, function(i){
-    x_bt <- sapply(1:length(x), function(j){
-      sapply(1:ncol(x[[j]]),function(k) rmultinom(n = 1,size = sum(x[[j]][,k]),prob = boot_pop[[j]][,k]))
-    })
-    ga_da_bt <- lapply(x_bt, rowSums)
-    ga_da_bt <- lapply(ga_da_bt, function(i) i[i>0])
-    names(ga_da_bt) <- nms
-    al_da_bt <- lapply(x_bt, function(i) as.matrix(i) %>% as.numeric)
-    al_da_bt <- lapply(al_da_bt, function(i) i[i>0])
-    names(al_da_bt) <- nms
-    gamma_bt <- iNEXT(x = ga_da_bt,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
-                      se = FALSE,conf = conf,nboot=nboot)$iNextEst %>% lapply(.,function(y) y$qD)
-    alpha_bt <- iNEXT(x = al_da_bt,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
-                      se = FALSE,conf = conf,nboot=nboot)$iNextEst %>% lapply(.,function(y) y$qD)
-    out_bt <- lapply(1:length(x),function(j){
-      beta_bt <- n_sp[j]*gamma_bt[[j]]/alpha_bt[[j]]
-      cbind(gamma = gamma_bt[[j]],alpha = alpha_bt[[j]]/n_sp[j], beta = beta_bt)
-    })
-    out_bt
-  })
-  se <- lapply(1:length(x), function(i) {
-    sapply(bt, function(y) y[[i]] ,simplify = "array") %>% apply(., 1:2, sd)
-  })
-}else { se <- 0}
-for(i in 1:length(nms)){
-  tmp <- qnorm(1 - (1 - conf)/2)
-  alpha$iNextEst[[i]]$qD <- alpha$iNextEst[[i]]$qD/n_sp[i]
-  beta$iNextEst[[i]]$qD <- gamma$iNextEst[[i]]$qD/alpha$iNextEst[[i]]$qD
-
-  gamma$iNextEst[[i]]$qD.LCL <- gamma$iNextEst[[i]]$qD - tmp * se[[i]]$gamma
-  gamma$iNextEst[[i]]$qD.UCL <- gamma$iNextEst[[i]]$qD + tmp * se[[i]]$gamma
-  alpha$iNextEst[[i]]$qD.LCL <- alpha$iNextEst[[i]]$qD - tmp * se[[i]]$alpha
-  alpha$iNextEst[[i]]$qD.UCL <- alpha$iNextEst[[i]]$qD + tmp * se[[i]]$alpha
-  beta$iNextEst[[i]]$qD.LCL <- beta$iNextEst[[i]]$qD - tmp * se[[i]]$beta
-  beta$iNextEst[[i]]$qD.UCL <- beta$iNextEst[[i]]$qD + tmp * se[[i]]$beta
-
-}
-return(list(gamma = gamma, alpha = alpha, beta = beta))
 
 #' \code{ggiNEXT_beta}: plot the outcome of \code{iNEXT_beta} based on the \code{ggiNEXT} function.
 #' @param x the outcome of \code{iNEXT_beta}
 #' @param type three types of plots: sample-size-based rarefaction/extrapolation curve (type = 1); sample completeness curve (type = 2);
 #' coverage-based rarefaction/extrapolation curve (type = 3).
-#' @param se a logical variable to calculate the bootstrap standard error and conf confidence interval.
 #' @return a list containing 3 ggplot2 object
 #' @examples
 #' data(abundata)
-#' out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance")
-#' ggout1 <- ggiNEXT_beta(x = out, type = 1)
-#' ggout2 <- ggiNEXT_beta(x = out, type = 2)
-#' ggout3 <- ggiNEXT_beta(x = out, type = 3)
-#' @importFrom iNEXT ggiNEXT
+#' out <- iNEXT_beta(x = abundata$region1, q = c(0,1,2), datatype = "abundance")
+#' ggout1 <- ggiNEXT_beta(output = out, type = 1)
+#' ggout2 <- ggiNEXT_beta(output = out, type = 2)
+#' ggout3 <- ggiNEXT_beta(output = out, type = 3)
+#' @import dplyr
 #' @export
-ggiNEXT_beta <- function(x, type = 1, se = FALSE){
-  gamma_p <- ggiNEXT(x$gamma,facet.var = "order",type = type,se = F)+ggtitle("Gamma diversity")
-  alpha_p <- ggiNEXT(x$alpha,facet.var = "order",type = type,se = F)+ggtitle("Alpha diversity")
-  beta_p <- ggiNEXT(x$beta,facet.var = "order",type = type,se = F)+ggtitle("Beta diversity")
-  return(list(gamma_p,alpha_p,beta_p))
+ggiNEXT_beta <- function(output, type = 1){
+  gamma <- lapply(output, function(y) y[["gamma"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Gamma") %>% as_tibble()
+  alpha <- lapply(output, function(y) y[["alpha"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Alpha") %>% as_tibble()
+  beta <- lapply(output, function(y) y[["beta"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Beta") %>% as_tibble()
+  a <- rbind(gamma,alpha,beta)
+  if(type == 1){
+    z <- a %>% select(-c(SC,SC.LCL,SC.UCL)) %>% rename(x=m,y=qD,y.LCL=qD.LCL,y.UCL=qD.UCL)
+    labx <- "Number of individual"
+    laby <- "Diveristy"
+  }else if (type==2){
+    z <- a %>% select(-c(qD,qD.LCL,qD.UCL)) %>% rename(x=m,y=SC,y.LCL=SC.LCL,y.UCL=SC.UCL) %>%
+      filter(order == unique(order)[1])
+    labx <- "Number of individual"
+    laby <- "Coverage"
+  }else if (type==3){
+    z <- a %>% select(-c(m,SC.LCL,SC.UCL)) %>% rename(x=SC,y=qD,y.LCL=qD.LCL,y.UCL=qD.UCL)
+    labx <- "Coverage"
+    laby <- "Diveristy"
+  }
+  z$div_type <- factor(z$div_type,levels = c("Gamma","Alpha","Beta"))
+  z_IE <- z[z$method!="observed",]
+  z_IE$method <- factor(z_IE$method,levels = c("interpolated","extrapolated"))
+  p <- ggplot(data = z,aes(x = x,y = y, col = Region)) + geom_line(data = z_IE,aes(linetype = method),size = 1.2)+
+    facet_grid(div_type~order,scales = "free_y")+
+    geom_ribbon(aes(ymin=y.LCL, ymax=y.UCL, fill=Region, colour=NULL), alpha=0.3)+
+    geom_point(data = z[z$method=="observed",],aes(shape=Region),size=3)+
+    theme_bw()+theme(legend.position = "bottom",legend.title = element_blank())+xlab(labx)+ylab(laby)
+  return(p)
 }
 
 

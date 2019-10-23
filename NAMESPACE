@@ -3,5 +3,4 @@
 export(ggiNEXT_beta)
 export(iNEXT_beta)
 import(dplyr)
-importFrom(iNEXT,ggiNEXT)
 importFrom(iNEXT,iNEXT)

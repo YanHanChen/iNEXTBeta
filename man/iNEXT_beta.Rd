@@ -2,9 +2,9 @@
 % Please edit documentation in R/funs.R
 \name{iNEXT_beta}
 \alias{iNEXT_beta}
-\title{\code{iNEXT_beta}: compute the rarefaction and extrapolation of beta diveristy}
+\title{\code{iNEXT_beta}: compute the rarefaction and extrapolation of beta diveristy.}
 \usage{
-iNEXT_beta(x, q = 0, datatype = "abundance", size = NULL,
+iNEXT_beta(x, q = c(0, 1, 2), datatype = "abundance", size = NULL,
   endpoint = NULL, knots = 40, se = TRUE, conf = 0.95,
   nboot = 30)
 }
@@ -35,13 +35,13 @@ and computes extrapolation estimates for approximately K/2 evenly spaced knots b
 \item{nboot}{an integer specifying the number of replications.}
 }
 \value{
-a list of 3 iNEXT objects, representing gamma, alpha and beta diversity respectively.
-the profiles of all six classes of evenness indices listed in Chao and Ricotta (2019) Ecology paper.
+a list consists of N elements, where N is the number of region. Each element is a list containing 3 tables of gamma. alpha and beta diversities,
+respectibely.
 }
 \description{
-\code{iNEXT_beta}: compute the rarefaction and extrapolation of beta diveristy
+\code{iNEXT_beta}: compute the rarefaction and extrapolation of beta diveristy.
 }
 \examples{
 data(abundata)
-out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance")
+out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance",se = TRUE)
 }
