@@ -1,7 +1,7 @@
 Package: iNEXTBeta
 Type: Package
 Title: iNEXT of beta diveristy 
-Version: 0.1.0
+Version: 0.2.0
 Author: Chaolab
 Maintainer: yhc <yhchen.st03g@g2.nctu.edu.tw>
 Description: compute the rarefaction and extrapolation of beta diveristy.

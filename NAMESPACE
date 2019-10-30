@@ -3,4 +3,5 @@
 export(ggiNEXT_beta)
 export(iNEXT_beta)
 import(dplyr)
+import(ggplot2)
 importFrom(iNEXT,iNEXT)

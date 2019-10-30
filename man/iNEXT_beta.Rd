@@ -35,8 +35,8 @@ and computes extrapolation estimates for approximately K/2 evenly spaced knots b
 \item{nboot}{an integer specifying the number of replications.}
 }
 \value{
-a list consists of N elements, where N is the number of region. Each element is a list containing 3 tables of gamma. alpha and beta diversities,
-respectibely.
+a list consists of N elements, where N is the number of region. Each element is a list containing 5 tables of gamma. alpha and beta diversities,
+and 2 types of dissimialrities (Sorensen and Jaccard), respectively.
 }
 \description{
 \code{iNEXT_beta}: compute the rarefaction and extrapolation of beta diveristy.
