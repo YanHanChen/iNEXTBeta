@@ -159,7 +159,8 @@ ggiNEXT_beta <- function(output, type = 1, goal = "Diversity"){
     geom_ribbon(aes(ymin=y.LCL, ymax=y.UCL, fill=Region, colour=NULL), alpha=0.3)+
     geom_point(data = z[z$method=="observed",],aes(shape=Region),size=3)+
     theme_bw()+theme(legend.position = "bottom",legend.title = element_blank())+xlab(labx)+ylab(laby)
-  return(list(betaDiv = p, diss = p2))
+  out <- list(betaDiv = p, diss = p2)
+  return(out)
 }
 
 
