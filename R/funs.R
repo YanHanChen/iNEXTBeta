@@ -136,31 +136,35 @@ ggiNEXT_beta <- function(output, type = 1, goal = "Diversity"){
     geom_ribbon(aes(ymin=y.LCL, ymax=y.UCL, fill=Region, colour=NULL), alpha=0.3)+
     geom_point(data = z[z$method=="observed",],aes(shape=Region),size=3)+
     theme_bw()+theme(legend.position = "bottom",legend.title = element_blank())+xlab(labx)+ylab(laby)
-
-  C_ <- lapply(output, function(y) y[["Sorensen"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Sorensen") %>%
-    as_tibble() %>% rename(dissimilarity = C_)
-  U_ <- lapply(output, function(y) y[["Jaccard"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Jaccard") %>%
-    as_tibble() %>% rename(dissimilarity = U_)
-  b <-rbind(C_,U_)
-  if(type == 1){
-    z <- b %>% select(-c(SC,SC.LCL,SC.UCL)) %>% rename(x=m,y=dissimilarity,y.LCL=diss.LCL,y.UCL=diss.UCL)
-    labx <- "Number of individual"
-    laby <- "Dissimilarity"
-  }else if (type==3){
-    z <- b %>% select(-c(m,SC.LCL,SC.UCL)) %>% rename(x=SC,y=dissimilarity,y.LCL=diss.LCL,y.UCL=diss.UCL)
-    labx <- "Coverage"
-    laby <- "Dissimilarity"
+  if(type!=2){
+    C_ <- lapply(output, function(y) y[["Sorensen"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Sorensen") %>%
+      as_tibble() %>% rename(dissimilarity = C_)
+    U_ <- lapply(output, function(y) y[["Jaccard"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Jaccard") %>%
+      as_tibble() %>% rename(dissimilarity = U_)
+    b <-rbind(C_,U_)
+    if(type == 1){
+      z <- b %>% select(-c(SC,SC.LCL,SC.UCL)) %>% rename(x=m,y=dissimilarity,y.LCL=diss.LCL,y.UCL=diss.UCL)
+      labx <- "Number of individual"
+      laby <- "Dissimilarity"
+    }else if (type==3){
+      z <- b %>% select(-c(m,SC.LCL,SC.UCL)) %>% rename(x=SC,y=dissimilarity,y.LCL=diss.LCL,y.UCL=diss.UCL)
+      labx <- "Coverage"
+      laby <- "Dissimilarity"
+    }
+    z$div_type <- factor(z$div_type,levels = c("Sorensen","Jaccard"))
+    z_IE <- z[z$method!="observed",]
+    z_IE$method <- factor(z_IE$method,levels = c("interpolated","extrapolated"))
+    p2 <- ggplot(data = z,aes(x = x,y = y, col = Region)) + geom_line(data = z_IE,aes(linetype = method),size = 1.2)+
+      facet_grid(div_type~order,scales = "free_y")+
+      geom_ribbon(aes(ymin=y.LCL, ymax=y.UCL, fill=Region, colour=NULL), alpha=0.3)+
+      geom_point(data = z[z$method=="observed",],aes(shape=Region),size=3)+
+      theme_bw()+theme(legend.position = "bottom",legend.title = element_blank())+xlab(labx)+ylab(laby)
+    out <- list(betaDiv = p, diss = p2)
+  }else{
+    out <-  list(betaDiv = p)
   }
-  z$div_type <- factor(z$div_type,levels = c("Sorensen","Jaccard"))
-  z_IE <- z[z$method!="observed",]
-  z_IE$method <- factor(z_IE$method,levels = c("interpolated","extrapolated"))
-  p2 <- ggplot(data = z,aes(x = x,y = y, col = Region)) + geom_line(data = z_IE,aes(linetype = method),size = 1.2)+
-    facet_grid(div_type~order,scales = "free_y")+
-    geom_ribbon(aes(ymin=y.LCL, ymax=y.UCL, fill=Region, colour=NULL), alpha=0.3)+
-    geom_point(data = z[z$method=="observed",],aes(shape=Region),size=3)+
-    theme_bw()+theme(legend.position = "bottom",legend.title = element_blank())+xlab(labx)+ylab(laby)
-  out <- list(betaDiv = p, diss = p2)
   return(out)
+
 }
 
 
