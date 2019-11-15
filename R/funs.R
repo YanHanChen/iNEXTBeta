@@ -59,7 +59,7 @@ iNEXT_beta <- function(x, q = c(0,1,2), datatype = "abundance", size = NULL, end
         x_bt <- x_bt[rowSums(x_bt)>0,]
         ga_da_bt <- rowSums(x_bt)
         al_da_bt <- as.numeric(x_bt)
-        al_da_bt <- x_bt[x_bt>0]
+        al_da_bt <- al_da_bt[al_da_bt>0]
         gamma_bt <- iNEXT(x = ga_da_bt,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
                           se = FALSE,conf = conf,nboot=nboot)$iNextEst %>% select(order,qD,SC)
         qs <- gamma_bt$order
@@ -109,7 +109,7 @@ iNEXT_beta <- function(x, q = c(0,1,2), datatype = "abundance", size = NULL, end
 #' @import dplyr
 #' @import ggplot2
 #' @export
-ggiNEXT_beta <- function(output, type = 1, goal = "Diversity"){
+ggiNEXT_beta <- function(output, type = 1){
   gamma <- lapply(output, function(y) y[["gamma"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Gamma") %>% as_tibble()
   alpha <- lapply(output, function(y) y[["alpha"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Alpha") %>% as_tibble()
   beta <- lapply(output, function(y) y[["beta"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Beta") %>% as_tibble()
@@ -167,4 +167,135 @@ ggiNEXT_beta <- function(output, type = 1, goal = "Diversity"){
 
 }
 
+#'\code{BetaProfile}: compute
+#' @param x a list consist of N data.frame/matrix describing species-by-assemblage/plot abundance. Note that
+#' the species in each element must exactly match including specpes order. Use \code{data(abundata)} to see data example.
+#' @param q a numeric value or vector specifying the diversity order of Hill number.
+#' @param datatype data type of input data: individual-based abundance data (\code{datatype = "abundance"}).
+#' @param se a logical variable to calculate the bootstrap standard error and conf confidence interval.
+#' @param nboot an integer specifying the number of replications.
+#' @param conf a positive number < 1 specifying the level of confidence interval, default is 0.95.
+#' @return a list consists of N elements, where N is the number of region. Each element is a list containing 5 tables of gamma. alpha and beta diversities,
+#' and 2 types of dissimialrities (Sorensen and Jaccard), respectively.
+#' @examples
+#' data(abundata2)
+#' out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance",se = TRUE)
+#' @import dplyr
+#' @export
+BetaProfile <- function(x, q = seq(0,2,0.1), datatype = "abundance", se = TRUE, nboot = 30, conf = 0.95){
+  if(class(x)=="data.frame" | class(x)=="matrix" ){
+    x <- list(region1 = x)
+  }
+  # if some community contains zero species?
+  if(class(x)== "list"){
+    if(is.null(names(x))) nms <- paste0("region",1:length(x))else nms <- names(x)
+    n_sp <- sapply(x,ncol)
+    mydata <- lapply(x, function(y) y[rowSums(y)>0,])
+  }
+  if(is.null(conf)) conf <- 0.95
+  tmp <- qnorm(1 - (1 - conf)/2)
+  eachR <- function(data,nm,N_site){
+    gdata <- rowSums(data)
+    adata <- as.matrix(data) %>% as.numeric
+    adata <- adata[adata>0]
+    gamma <- Diversity_profile(x = gdata,q = q) %>% cbind(order = q, qD = .) %>% as_tibble()
+    # gamma <- iNEXT(x = gdata,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+    #                se = FALSE,conf = conf,nboot=nboot)$iNextEst
+    # alpha <- iNEXT(x = adata,q = q,datatype = datatype,size = size,endpoint = endpoint,knots = knots,
+    #                se = FALSE,conf = conf,nboot=nboot)$iNextEst
+    alpha <- (Diversity_profile(x = adata,q = q)/N_site) %>% cbind(order = q, qD = .) %>% as_tibble()
+    # alpha$qD <- alpha$qD/N_site
+    beta <- gamma;
+    beta$qD <- gamma$qD/alpha$qD
+    # beta$qD <- gamma$qD/alpha$qD
+    C_ <- beta %>% mutate(C_ = ifelse(order==1,log(qD)/log(N_site),(qD^(1-order) - 1)/(N_site^(1-order)-1))) %>%
+      select(-qD)
+    U_ <- beta %>% mutate(U_ = ifelse(order==1,log(qD)/log(N_site),(qD^(order-1) - 1)/(N_site^(order-1)-1))) %>%
+      select(-qD)
+
+    if(se==TRUE & nboot>1){
+      boot_pop <- boot_beta_one(data)
+      x_bts <- sapply(1:ncol(data),function(i){
+        rmultinom(n = nboot,size = sum(data[,i]),prob = boot_pop[,i])
+      },simplify = "array") %>% aperm(.,perm = c(1,3,2))
+      ses <- sapply(1:nboot, function(i){
+        x_bt <- x_bts[,,i]
+        x_bt <- x_bt[rowSums(x_bt)>0,]
+        ga_da_bt <- rowSums(x_bt)
+        al_da_bt <- as.numeric(x_bt)
+        al_da_bt <- al_da_bt[al_da_bt>0]
+        gamma_bt <- Diversity_profile(x = ga_da_bt,q = q)
+        # qs <- gamma_bt$order
+        # gamma_bt <- gamma_bt %>% select(-order)
+        alpha_bt <- (Diversity_profile(x = al_da_bt,q = q)/N_site)
+        # alpha_bt$qD <- alpha_bt$qD/N_site
+        beta_bt <- gamma_bt/alpha_bt
+        C_ <- U_ <- beta_bt
+        C_[q!=1] <- (beta_bt[q!=1]^(1-q[q!=1]) - 1)/(N_site^(1-q[q!=1])-1)
+        U_[q!=1] <- (beta_bt[q!=1]^(q[q!=1]-1) - 1)/(N_site^(q[q!=1]-1)-1)
+        C_[q==1] <-  U_[q==1] <- log(beta_bt[q==1])/log(N_site)
+        out_bt <- cbind(gamma = gamma_bt,alpha = alpha_bt, beta = beta_bt,C_,U_) %>% as.matrix()
+        out_bt
+      },simplify = "array") %>% apply(., 1:2, sd) %>% as_tibble()
+    }else {
+      ses <- matrix(0,nrow = nrow(gamma),ncol = 5)
+      colnames(ses) <- c("gamma","alpha","beta","C_","U_")
+      }
+    gamma <- gamma %>% mutate(qD.LCL = qD - tmp * ses$gamma, qD.UCL = qD + tmp * ses$gamma,Region = nm)
+    alpha <- alpha %>% mutate(qD.LCL = qD - tmp * ses$alpha, qD.UCL = qD + tmp * ses$alpha,Region = nm)
+    beta <- beta %>% mutate(qD.LCL = qD - tmp * ses$beta, qD.UCL = qD + tmp * ses$beta,Region = nm)
+    C_ <- C_ %>% mutate(diss.LCL = C_ - tmp * ses$C_, diss.UCL = C_ + tmp * ses$C_, Region = nm)
+    U_ <- U_ %>% mutate(diss.LCL = U_ - tmp * ses$U_, diss.UCL = U_ + tmp * ses$U_, Region = nm)
+    list(gamma = gamma, alpha = alpha, beta = beta, Sorensen = C_, Jaccard = U_)
+  }
+  out <- lapply(1:length(x), function(i) eachR(data = mydata[[i]],nm = nms[i],N_site = n_sp[i]))
+  names(out) <- nms
+  out
+}
+
+#' \code{ggbeta_profile}: plot the outcome of \code{BetaProfile} based on the \code{ggiNEXT} function.
+#' @param x the outcome of \code{BetaProfile}
+#' @param type three types of plots: sample-size-based rarefaction/extrapolation curve (type = 1); sample completeness curve (type = 2);
+#' coverage-based rarefaction/extrapolation curve (type = 3).
+#' @return a list containing 2 ggplot2 object, \code{$betaDiv} for beta diversity and \code{$diss} for dissimilarity
+#' @examples
+#' data(abundata2)
+#' out <- BetaProfile(x = abundata)
+#' @import dplyr
+#' @import ggplot2
+#' @export
+ggbeta_profile <- function(output){
+  gamma <- lapply(output, function(y) y[["gamma"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Gamma") %>% as_tibble()
+  alpha <- lapply(output, function(y) y[["alpha"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Alpha") %>% as_tibble()
+  beta <- lapply(output, function(y) y[["beta"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Beta") %>% as_tibble()
+  a <- rbind(gamma,alpha,beta)
+  z <- a %>% rename(x=order,y=qD,y.LCL=qD.LCL,y.UCL=qD.UCL)
+  labx <- "Number of individual"
+  laby <- "Diveristy"
+
+  z$div_type <- factor(z$div_type,levels = c("Gamma","Alpha","Beta"))
+  p <- ggplot(data = z,aes(x = x,y = y, col = Region)) + geom_line(size = 1.2)+
+    facet_grid(div_type~.,scales = "free_y")+
+    geom_ribbon(aes(ymin=y.LCL, ymax=y.UCL, fill=Region, colour=NULL), alpha=0.3)+
+    geom_point(data = z[z$x - round(z$x) == 0 ,],aes(shape=Region),size=3)+
+    theme_bw()+theme(legend.position = "bottom",legend.title = element_blank())+xlab(labx)+ylab(laby)
+  C_ <- lapply(output, function(y) y[["Sorensen"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Sorensen") %>%
+      as_tibble() %>% rename(dissimilarity = C_)
+  U_ <- lapply(output, function(y) y[["Jaccard"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Jaccard") %>%
+      as_tibble() %>% rename(dissimilarity = U_)
+  b <-rbind(C_,U_)
+  z <- b %>% rename(x=order,y=dissimilarity,y.LCL=diss.LCL,y.UCL=diss.UCL)
+  labx <- "Number of individual"
+  laby <- "Dissimilarity"
+
+  z$div_type <- factor(z$div_type,levels = c("Sorensen","Jaccard"))
+  p2 <- ggplot(data = z,aes(x = x,y = y, col = Region)) + geom_line(size = 1.2)+
+    facet_grid(div_type~.,scales = "free_y")+
+    geom_ribbon(aes(ymin=y.LCL, ymax=y.UCL, fill=Region, colour=NULL), alpha=0.3)+
+    geom_point(data = z[z$x - round(z$x) == 0 ,],aes(shape=Region),size=3)+
+    theme_bw()+theme(legend.position = "bottom",legend.title = element_blank())+xlab(labx)+ylab(laby)
+  out <-  list(betaDiv = p, diss = p2)
+  return(out)
+
+}
 
