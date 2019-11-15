@@ -8,9 +8,6 @@ ggbeta_profile(output)
 }
 \arguments{
 \item{x}{the outcome of \code{BetaProfile}}
-
-\item{type}{three types of plots: sample-size-based rarefaction/extrapolation curve (type = 1); sample completeness curve (type = 2);
-coverage-based rarefaction/extrapolation curve (type = 3).}
 }
 \value{
 a list containing 2 ggplot2 object, \code{$betaDiv} for beta diversity and \code{$diss} for dissimilarity
@@ -21,4 +18,5 @@ a list containing 2 ggplot2 object, \code{$betaDiv} for beta diversity and \code
 \examples{
 data(abundata2)
 out <- BetaProfile(x = abundata)
+ggbeta_profile(output = out)
 }

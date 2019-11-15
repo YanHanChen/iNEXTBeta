@@ -255,12 +255,11 @@ BetaProfile <- function(x, q = seq(0,2,0.1), datatype = "abundance", se = TRUE, 
 
 #' \code{ggbeta_profile}: plot the outcome of \code{BetaProfile} based on the \code{ggiNEXT} function.
 #' @param x the outcome of \code{BetaProfile}
-#' @param type three types of plots: sample-size-based rarefaction/extrapolation curve (type = 1); sample completeness curve (type = 2);
-#' coverage-based rarefaction/extrapolation curve (type = 3).
 #' @return a list containing 2 ggplot2 object, \code{$betaDiv} for beta diversity and \code{$diss} for dissimilarity
 #' @examples
 #' data(abundata2)
 #' out <- BetaProfile(x = abundata)
+#' ggbeta_profile(output = out)
 #' @import dplyr
 #' @import ggplot2
 #' @export
@@ -270,7 +269,7 @@ ggbeta_profile <- function(output){
   beta <- lapply(output, function(y) y[["beta"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Beta") %>% as_tibble()
   a <- rbind(gamma,alpha,beta)
   z <- a %>% rename(x=order,y=qD,y.LCL=qD.LCL,y.UCL=qD.UCL)
-  labx <- "Number of individual"
+  labx <- "Order q"
   laby <- "Diveristy"
 
   z$div_type <- factor(z$div_type,levels = c("Gamma","Alpha","Beta"))
@@ -285,7 +284,6 @@ ggbeta_profile <- function(output){
       as_tibble() %>% rename(dissimilarity = U_)
   b <-rbind(C_,U_)
   z <- b %>% rename(x=order,y=dissimilarity,y.LCL=diss.LCL,y.UCL=diss.UCL)
-  labx <- "Number of individual"
   laby <- "Dissimilarity"
 
   z$div_type <- factor(z$div_type,levels = c("Sorensen","Jaccard"))
