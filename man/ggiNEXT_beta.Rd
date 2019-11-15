@@ -4,7 +4,7 @@
 \alias{ggiNEXT_beta}
 \title{\code{ggiNEXT_beta}: plot the outcome of \code{iNEXT_beta} based on the \code{ggiNEXT} function.}
 \usage{
-ggiNEXT_beta(output, type = 1, goal = "Diversity")
+ggiNEXT_beta(output, type = 1)
 }
 \arguments{
 \item{type}{three types of plots: sample-size-based rarefaction/extrapolation curve (type = 1); sample completeness curve (type = 2);
