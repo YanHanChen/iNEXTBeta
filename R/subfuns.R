@@ -14,8 +14,9 @@ boot_beta_one <- function (data)
       out <- c(out,rep(0,f0.hat))
       zrs <- which(out==0)
       chosen <- sample(x = zrs,size = min(length(newp) - length(x),length(zrs)),replace = F)
-      out[chosen] <- p0
-      out <- out/sum(out)
+      out[chosen] <- (1-sum(out))/length(chosen)
+
+      # out <- out/sum(out)
       out
     }else{
       out <- c(newp,rep(0,f0.hat))
