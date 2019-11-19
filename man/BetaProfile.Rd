@@ -30,5 +30,5 @@ and 2 types of dissimialrities (Sorensen and Jaccard), respectively.
 }
 \examples{
 data(abundata2)
-out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance",se = TRUE)
+out <- BetaProfile(x = abundata2, q = seq(0,2,0.1), datatype = "abundance")
 }

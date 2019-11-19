@@ -17,6 +17,6 @@ a list containing 2 ggplot2 object, \code{$betaDiv} for beta diversity and \code
 }
 \examples{
 data(abundata2)
-out <- BetaProfile(x = abundata)
+out <- BetaProfile(x = abundata2)
 ggbeta_profile(output = out)
 }

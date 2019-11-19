@@ -181,7 +181,7 @@ ggiNEXT_beta <- function(output, type = 1){
 #' and 2 types of dissimialrities (Sorensen and Jaccard), respectively.
 #' @examples
 #' data(abundata2)
-#' out <- iNEXT_beta(x = abundata, q = c(0,1,2), datatype = "abundance",se = TRUE)
+#' out <- BetaProfile(x = abundata2, q = seq(0,2,0.1), datatype = "abundance")
 #' @import dplyr
 #' @export
 BetaProfile <- function(x, q = seq(0,2,0.1), datatype = "abundance", se = TRUE, nboot = 30, conf = 0.95){
@@ -261,7 +261,7 @@ BetaProfile <- function(x, q = seq(0,2,0.1), datatype = "abundance", se = TRUE, 
 #' @return a list containing 2 ggplot2 object, \code{$betaDiv} for beta diversity and \code{$diss} for dissimilarity
 #' @examples
 #' data(abundata2)
-#' out <- BetaProfile(x = abundata)
+#' out <- BetaProfile(x = abundata2)
 #' ggbeta_profile(output = out)
 #' @import dplyr
 #' @import ggplot2
