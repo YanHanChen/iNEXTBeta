@@ -75,8 +75,9 @@ iNEXT_beta <- function(x, q = c(0,1,2), datatype = "abundance", size = NULL, end
         out_bt
       },simplify = "array") %>% apply(., 1:2, sd) %>% data.frame()
     }else {
-      ses <- matrix(0,ncol = 7, nrow = nrow(gamma)) %>% as_tibble()
+      ses <- matrix(0,ncol = 7, nrow = nrow(gamma))
       colnames(ses) <- c("gamma.qD","gamma.SC","alpha.qD","alpha.SC","beta.qD","C_","U_")
+      ses <- as_tibble(ses)
     }
     gamma <- gamma %>% mutate(qD.LCL = qD - tmp * ses$gamma.qD, qD.UCL = qD + tmp * ses$gamma.qD,
                      SC.LCL = SC - tmp * ses$gamma.SC, SC.UCL = SC + tmp * ses$gamma.SC, Region = nm)
@@ -239,8 +240,9 @@ BetaProfile <- function(x, q = seq(0,2,0.1), datatype = "abundance", se = TRUE, 
         out_bt
       },simplify = "array") %>% apply(., 1:2, sd) %>% as_tibble()
     }else {
-      ses <- matrix(0,nrow = nrow(gamma),ncol = 5) %>% as_tibble()
+      ses <- matrix(0,nrow = nrow(gamma),ncol = 5)
       colnames(ses) <- c("gamma","alpha","beta","C_","U_")
+      ses <- as_tibble(ses)
       }
     gamma <- gamma %>% mutate(qD.LCL = qD - tmp * ses$gamma, qD.UCL = qD + tmp * ses$gamma,Region = nm)
     alpha <- alpha %>% mutate(qD.LCL = qD - tmp * ses$alpha, qD.UCL = qD + tmp * ses$alpha,Region = nm)
